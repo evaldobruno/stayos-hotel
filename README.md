@@ -1,4 +1,4 @@
-# StayOS — Sistema de Gestão Hoteleira (Hotel Miramar)
+# StayOS — Sistema de Gestão Hoteleira
 
 Aplicação real, sem dependências externas. Fase 1 do roadmap (ver `ROADMAP.md`).
 
@@ -8,7 +8,7 @@ Aplicação real, sem dependências externas. Fase 1 do roadmap (ver `ROADMAP.md
 ## Como arrancar (3 passos)
 ```bash
 cd StayOS-system
-node src/seed.js      # cria a base de dados com os dados do Hotel Miramar
+node src/seed.js      # cria a base de dados com os dados de exemplo
 node src/server.js    # arranca o servidor
 ```
 Depois abre no navegador: **http://localhost:4000**
@@ -35,7 +35,7 @@ StayOS-system/
   src/
     db.js        # esquema relacional (SQLite) + helpers
     auth.js      # hash de password + tokens (crypto nativo)
-    seed.js      # dados iniciais do Hotel Miramar
+    seed.js      # dados iniciais de exemplo
     server.js    # servidor HTTP: API REST + ficheiros estáticos
   public/        # frontend (login + painel staff, EN/NL)
   data/stayos.db # base de dados (gerada pelo seed)
@@ -45,6 +45,34 @@ StayOS-system/
 - Base de dados **SQLite** — adequada para 1 hotel; migrável para PostgreSQL para cadeias.
 - Para mudar a porta: `PORT=8080 node src/server.js`.
 - Próximas fases (check-in/out, faturação, portal do hóspede, integração Booking.com) em `ROADMAP.md`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

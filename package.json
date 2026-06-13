@@ -1,7 +1,7 @@
 {
   "name": "stayos-app",
   "version": "0.1.0",
-  "description": "StayOS — Hotel management system (Hotel Miramar). Zero-dependency Node + SQLite.",
+  "description": "StayOS — Hotel management system (Demo Hotel). Zero-dependency Node + SQLite.",
   "type": "module",
   "scripts": {
     "seed": "node src/seed.js",
@@ -10,3 +10,6 @@
   "engines": { "node": ">=22.5.0" },
   "private": true
 }
+
+
+

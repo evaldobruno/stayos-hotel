@@ -1,4 +1,4 @@
-// StayOS — seed the Hotel Miramar demo dataset
+// StayOS — seed the Demo Hotel demo dataset
 import { db, initSchema, run, get } from './db.js';
 import { hashPassword } from './auth.js';
 
@@ -12,10 +12,10 @@ for (const t of TABLES) run(`DELETE FROM sqlite_sequence WHERE name=?`, t);
 db.exec('PRAGMA foreign_keys = ON;');
 
 run(`INSERT INTO hotels(name,city,country,rooms_count,currency,timezone)
-     VALUES(?,?,?,?,?,?)`, 'Hotel Miramar', 'Domburg', 'NL', 30, 'EUR', 'Europe/Amsterdam');
+     VALUES(?,?,?,?,?,?)`, 'Demo Hotel', 'Domburg', 'NL', 30, 'EUR', 'Europe/Amsterdam');
 
 const users = [
-  ['Manager Miramar', 'admin@stayos.hotel', 'admin123', 'admin'],
+  ['Hotel Manager', 'admin@stayos.hotel', 'admin123', 'admin'],
   ['Reception Desk',  'reception@stayos.hotel', 'reception123', 'reception'],
   ['Housekeeping Lead','housekeeping@stayos.hotel', 'house123', 'housekeeping'],
 ];
@@ -161,6 +161,14 @@ for (const t of ['rooms','guests','reservations','users','service_requests','mai
   counts[t] = get(`SELECT COUNT(*) c FROM ${t}`).c;
 console.log('Seed complete:', counts);
 console.log('Login: admin@stayos.hotel / admin123');
+
+
+
+
+
+
+
+
 
 
 

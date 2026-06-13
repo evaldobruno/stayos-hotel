@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: stayos-miramar
+    name: stayos-hotel
     runtime: node
     plan: free
     buildCommand: ""
@@ -10,3 +10,5 @@ services:
         value: "22"
       - key: STAYOS_SECRET
         generateValue: true
+
+

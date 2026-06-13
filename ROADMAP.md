@@ -1,6 +1,6 @@
 # StayOS — Roadmap de implementação
 
-Sistema de gestão hoteleira para o Hotel Miramar (30 quartos), construído com base no protótipo aprovado.
+Sistema de gestão hoteleira para o Demo Hotel (30 quartos), construído com base no protótipo aprovado.
 
 ## Stack escolhida (e porquê)
 
@@ -18,7 +18,7 @@ Sistema de gestão hoteleira para o Hotel Miramar (30 quartos), construído com 
 
 ### ✅ Fase 1 — Núcleo operacional (EM CURSO)
 Fundação real e navegável com dados de verdade:
-- Base de dados relacional completa + dados do Hotel Miramar (30 quartos, hóspedes, reservas).
+- Base de dados relacional completa + dados do Demo Hotel (30 quartos, hóspedes, reservas).
 - API REST + login seguro com perfis de utilizador.
 - Painel de staff ligado à API: **Dashboard, Mapa de Quartos, Reservas, CRM de Hóspedes**.
 - Interface EN/NL.
@@ -46,3 +46,9 @@ A Fase 1 + Fase 2 constituem o MVP operacional: chega para gerir reservas, quart
 
 ## Como vais validar
 No fim de cada fase entrego o sistema a correr e digo-te exatamente o que abrir/clicar. Tu validas e dou seguimento à fase seguinte.
+
+
+
+
+
+

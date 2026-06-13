@@ -1,6 +1,6 @@
 # Colocar o StayOS online (link para validar)
 
-Objetivo: obter um link (ex.: `https://stayos-miramar.onrender.com`) onde abres a app real e validas a Fase 1, sem instalar nada no teu PC. Usamos o **Render** (plano gratuito).
+Objetivo: obter um link (ex.: `https://stayos-hotel.onrender.com`) onde abres a app real e validas a Fase 1, sem instalar nada no teu PC. Usamos o **Render** (plano gratuito).
 
 A app já está preparada: arranca sozinha e **semeia os dados automaticamente** no primeiro arranque.
 
@@ -10,7 +10,7 @@ A app já está preparada: arranca sozinha e **semeia os dados automaticamente**
 
 ### 1. Pôr o código no GitHub
 1. Cria uma conta gratuita em **https://github.com** (se ainda não tens).
-2. Clica em **New repository**. Nome: `stayos-miramar`. Deixa **Public**. Cria.
+2. Clica em **New repository**. Nome: `stayos-hotel`. Deixa **Public**. Cria.
 3. Na página do repositório, clica em **uploading an existing file**.
 4. **Arrasta para lá todo o conteúdo da pasta `StayOS-system`** (as pastas `src`, `public`, `data` e os ficheiros `package.json`, `render.yaml`, `.node-version`, etc.).
 5. Clica em **Commit changes**.
@@ -18,7 +18,7 @@ A app já está preparada: arranca sozinha e **semeia os dados automaticamente**
 ### 2. Publicar no Render
 1. Cria conta gratuita em **https://render.com** e escolhe **"Sign in with GitHub"**.
 2. Clica em **New +** → **Blueprint**.
-3. Seleciona o repositório `stayos-miramar`. O Render lê o ficheiro `render.yaml` e configura tudo sozinho.
+3. Seleciona o repositório `stayos-hotel`. O Render lê o ficheiro `render.yaml` e configura tudo sozinho.
 4. Clica em **Apply** / **Create**. Espera 1–2 minutos pelo deploy.
 5. No fim, o Render mostra o link público (termina em `.onrender.com`).
 
@@ -37,4 +37,10 @@ A app já está preparada: arranca sozinha e **semeia os dados automaticamente**
 - **Sem GitHub?** Em alternativa podes usar o **Replit** (https://replit.com): "Create Repl" → Node.js → arrasta os ficheiros → Run. Dá também um link público.
 
 Quando validares, avanço para a **Fase 2** (check-in/out digital, atribuição de quartos, housekeeping e manutenção operacionais).
+
+
+
+
+
+
 
