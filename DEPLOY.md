@@ -25,7 +25,7 @@ A app já está preparada: arranca sozinha e **semeia os dados automaticamente**
 > Em alternativa ao Blueprint: **New + → Web Service** → escolhe o repo → Start command `node --experimental-sqlite src/server.js` → Node version `22` → Create.
 
 ### 3. Abrir e validar
-- Abre o link. **Login:** `admin@miramar.hotel` / `admin123`.
+- Abre o link. **Login:** `admin@stayos.hotel` / `admin123`.
 - No canto superior direito troca **EN / NL**.
 - Envia-me o link e o teu feedback.
 
@@ -37,3 +37,4 @@ A app já está preparada: arranca sozinha e **semeia os dados automaticamente**
 - **Sem GitHub?** Em alternativa podes usar o **Replit** (https://replit.com): "Create Repl" → Node.js → arrasta os ficheiros → Run. Dá também um link público.
 
 Quando validares, avanço para a **Fase 2** (check-in/out digital, atribuição de quartos, housekeeping e manutenção operacionais).
+

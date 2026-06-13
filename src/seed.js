@@ -15,9 +15,9 @@ run(`INSERT INTO hotels(name,city,country,rooms_count,currency,timezone)
      VALUES(?,?,?,?,?,?)`, 'Hotel Miramar', 'Domburg', 'NL', 30, 'EUR', 'Europe/Amsterdam');
 
 const users = [
-  ['Manager Miramar', 'admin@miramar.hotel', 'admin123', 'admin'],
-  ['Reception Desk',  'reception@miramar.hotel', 'reception123', 'reception'],
-  ['Housekeeping Lead','housekeeping@miramar.hotel', 'house123', 'housekeeping'],
+  ['Manager Miramar', 'admin@stayos.hotel', 'admin123', 'admin'],
+  ['Reception Desk',  'reception@stayos.hotel', 'reception123', 'reception'],
+  ['Housekeeping Lead','housekeeping@stayos.hotel', 'house123', 'housekeeping'],
 ];
 for (const [name, email, pw, role] of users)
   run(`INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)`,
@@ -160,4 +160,8 @@ const counts = {};
 for (const t of ['rooms','guests','reservations','users','service_requests','maintenance_issues','reviews'])
   counts[t] = get(`SELECT COUNT(*) c FROM ${t}`).c;
 console.log('Seed complete:', counts);
-console.log('Login: admin@miramar.hotel / admin123');
+console.log('Login: admin@stayos.hotel / admin123');
+
+
+
+

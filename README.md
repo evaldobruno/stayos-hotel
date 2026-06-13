@@ -14,9 +14,9 @@ node src/server.js    # arranca o servidor
 Depois abre no navegador: **http://localhost:4000**
 
 Login de demonstração:
-- **admin@miramar.hotel** / **admin123** (administrador)
-- reception@miramar.hotel / reception123 (receção)
-- housekeeping@miramar.hotel / house123 (limpeza)
+- **admin@stayos.hotel** / **admin123** (administrador)
+- reception@stayos.hotel / reception123 (receção)
+- housekeeping@stayos.hotel / house123 (limpeza)
 
 > No canto superior direito há um seletor **EN / NL** para mudar o idioma da aplicação.
 
@@ -45,3 +45,6 @@ StayOS-system/
 - Base de dados **SQLite** — adequada para 1 hotel; migrável para PostgreSQL para cadeias.
 - Para mudar a porta: `PORT=8080 node src/server.js`.
 - Próximas fases (check-in/out, faturação, portal do hóspede, integração Booking.com) em `ROADMAP.md`.
+
+
+

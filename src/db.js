@@ -7,7 +7,7 @@ import { mkdirSync } from 'node:fs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'data');
 mkdirSync(DATA_DIR, { recursive: true });
-export const DB_PATH = join(DATA_DIR, 'stayos.db');
+export const DB_PATH = join(DATA_DIR, 'stayos.sqlite');
 
 export const db = new DatabaseSync(DB_PATH);
 try { db.exec('PRAGMA journal_mode = MEMORY;'); } catch { /* default journal */ }
