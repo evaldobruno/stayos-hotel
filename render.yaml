@@ -10,5 +10,5 @@ services:
         value: "22"
       - key: STAYOS_SECRET
         generateValue: true
-
-
+      - key: DB_FILE
+        value: /tmp/stayos.sqlite

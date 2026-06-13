@@ -6,8 +6,10 @@ import { mkdirSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'data');
-mkdirSync(DATA_DIR, { recursive: true });
-export const DB_PATH = join(DATA_DIR, 'stayos.sqlite');
+// DB_FILE lets the server store the database outside the uploaded folder
+// (so an accidentally-committed database is ignored and a fresh one is seeded).
+export const DB_PATH = process.env.DB_FILE || join(DATA_DIR, 'stayos.sqlite');
+mkdirSync(dirname(DB_PATH), { recursive: true });
 
 export const db = new DatabaseSync(DB_PATH);
 try { db.exec('PRAGMA journal_mode = MEMORY;'); } catch { /* default journal */ }
