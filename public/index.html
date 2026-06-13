@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StayOS — Hotel Miramar</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <!-- LOGIN -->
+  <div class="login-wrap" id="loginView">
+    <form class="login-card" id="loginForm">
+      <div class="brand">
+        <div class="mark">S</div>
+        <div><h1>StayOS</h1><small>Hotel Miramar · Management</small></div>
+      </div>
+      <div class="field">
+        <label data-i="email">Email</label>
+        <input type="email" id="email" value="admin@miramar.hotel" autocomplete="username">
+      </div>
+      <div class="field">
+        <label data-i="password">Password</label>
+        <input type="password" id="password" value="admin123" autocomplete="current-password">
+      </div>
+      <button class="btn block" type="submit" data-i="signin">Sign in</button>
+      <div class="err" id="loginErr"></div>
+      <div class="hint" id="loginHint">Demo: admin@miramar.hotel / admin123</div>
+    </form>
+  </div>
+
+  <!-- APP -->
+  <div class="app hidden" id="appView">
+    <aside class="sidebar">
+      <div class="logo"><div class="mark">S</div><div><b>StayOS</b><small>Hotel Miramar</small></div></div>
+      <div class="nav" id="nav"></div>
+    </aside>
+    <div class="main">
+      <div class="topbar">
+        <div><h1 id="pgTitle">Dashboard</h1><div class="sub" id="pgSub"></div></div>
+        <div class="spacer"></div>
+        <div class="langsw" id="langsw">
+          <button data-lang="en">EN</button><button data-lang="nl">NL</button>
+        </div>
+        <div class="avatar" id="avatar">M</div>
+        <button class="btn ghost" id="logoutBtn" style="padding:7px 12px" data-i="logout">Logout</button>
+      </div>
+      <div class="content" id="content"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

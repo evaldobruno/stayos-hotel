@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: stayos-miramar
+    runtime: node
+    plan: free
+    buildCommand: ""
+    startCommand: node --experimental-sqlite src/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: STAYOS_SECRET
+        generateValue: true
