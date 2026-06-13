@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname, normalize } from 'node:path';
 import { initSchema, all, get, run } from './db.js';
-import { verifyPassword, signToken, verifyToken } from './auth.js';
+import { hashPassword, verifyPassword, signToken, verifyToken } from './auth.js';
 
 initSchema();
 // Auto-seed on first boot (hosting platforms use ephemeral disks and don't run manual commands)
@@ -106,6 +106,51 @@ api['POST /api/rooms/status'] = async (req,res) => {
 api['POST /api/reservations/status'] = async (req,res) => {
   const { id, status } = await body(req);
   run(`UPDATE reservations SET status=? WHERE id=?`, status, id);
+  json(res,200,{ ok:true });
+};
+
+
+// ---- Settings & user management (admin only) ----
+const isAdmin = (ctx) => ctx && ctx.role === 'admin';
+api['GET /api/settings'] = (req,res) => json(res,200, get(`SELECT id,name,city,country,currency FROM hotels LIMIT 1`) || {});
+api['POST /api/settings/update'] = async (req,res,ctx) => {
+  if(!isAdmin(ctx)) return json(res,403,{error:'admin only'});
+  const { name, city, country, currency } = await body(req);
+  const h = get(`SELECT id FROM hotels LIMIT 1`);
+  if (h) run(`UPDATE hotels SET name=?,city=?,country=?,currency=? WHERE id=?`, name,city,country,currency,h.id);
+  else   run(`INSERT INTO hotels(name,city,country,currency) VALUES(?,?,?,?)`, name,city,country,currency);
+  json(res,200,{ ok:true });
+};
+api['GET /api/users'] = (req,res,ctx) => {
+  if(!isAdmin(ctx)) return json(res,403,{error:'admin only'});
+  json(res,200, all(`SELECT id,name,email,role,active FROM users ORDER BY id`));
+};
+api['POST /api/users/create'] = async (req,res,ctx) => {
+  if(!isAdmin(ctx)) return json(res,403,{error:'admin only'});
+  const { name,email,password,role } = await body(req);
+  if(!name||!email||!password) return json(res,400,{error:'missing fields'});
+  try { run(`INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)`,
+            name, String(email).toLowerCase().trim(), hashPassword(password), role||'reception');
+        json(res,200,{ ok:true }); }
+  catch { json(res,400,{error:'email already exists'}); }
+};
+api['POST /api/users/update'] = async (req,res,ctx) => {
+  if(!isAdmin(ctx)) return json(res,403,{error:'admin only'});
+  const { id,name,email,role,active,password } = await body(req);
+  try {
+    run(`UPDATE users SET name=COALESCE(?,name), email=COALESCE(?,email),
+         role=COALESCE(?,role), active=COALESCE(?,active) WHERE id=?`,
+        name??null, email?String(email).toLowerCase().trim():null, role??null,
+        (active===undefined?null:(active?1:0)), id);
+    if(password) run(`UPDATE users SET password_hash=? WHERE id=?`, hashPassword(password), id);
+    json(res,200,{ ok:true });
+  } catch { json(res,400,{error:'email already exists'}); }
+};
+api['POST /api/users/delete'] = async (req,res,ctx) => {
+  if(!isAdmin(ctx)) return json(res,403,{error:'admin only'});
+  const { id } = await body(req);
+  if(Number(id)===ctx.uid) return json(res,400,{error:'cannot delete yourself'});
+  run(`DELETE FROM users WHERE id=?`, id);
   json(res,200,{ ok:true });
 };
 

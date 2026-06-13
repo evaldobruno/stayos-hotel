@@ -23,6 +23,14 @@ const I18N = {
     all_channels:'All channels', all_status:'All statuses', search_guest:'Search guest…',
     rooms:'rooms', floor:'Floor', preferences:'Preferences', history:'History', profile:'Profile',
     more_soon:'Billing, Reviews, Automated messaging and the Guest Portal arrive in Phase 3.',
+    sec_admin:'Administration', nav_settings:'Settings', sub_settings:'Hotel data and user management',
+    set_hotel:'Hotel details', set_name:'Name', set_city:'City', set_country:'Country', set_currency:'Currency',
+    set_users:'Users & access', add_user:'Add user', save:'Save', saved:'Saved ✓',
+    th_name:'Name', th_email:'Email', th_role:'Role', th_active:'Active', th_actions:'Actions',
+    reset_pw:'Reset password', deactivate:'Deactivate', activate:'Activate', del:'Delete',
+    new_password:'New password', confirm_del:'Delete this user?', admin_only:'Administrators only.',
+    role_admin:'Administrator', role_manager:'Manager', role_reception:'Reception',
+    role_housekeeping:'Housekeeping', role_maintenance:'Maintenance', role_finance:'Finance',
     // statuses
     s_new:'New', s_confirmed:'Confirmed', s_pending:'Pending', s_cancelled:'Cancelled',
     s_no_show:'No-show', s_checked_in:'Checked in', s_in_house:'In house', s_checked_out:'Checked out',
@@ -55,6 +63,14 @@ const I18N = {
     all_channels:'Alle kanalen', all_status:'Alle statussen', search_guest:'Zoek gast…',
     rooms:'kamers', floor:'Verdieping', preferences:'Voorkeuren', history:'Historie', profile:'Profiel',
     more_soon:'Facturatie, Reviews, Geautomatiseerde berichten en het Gastenportaal komen in Fase 3.',
+    sec_admin:'Beheer', nav_settings:'Instellingen', sub_settings:'Hotelgegevens en gebruikersbeheer',
+    set_hotel:'Hotelgegevens', set_name:'Naam', set_city:'Stad', set_country:'Land', set_currency:'Valuta',
+    set_users:'Gebruikers & toegang', add_user:'Gebruiker toevoegen', save:'Opslaan', saved:'Opgeslagen ✓',
+    th_name:'Naam', th_email:'E-mail', th_role:'Rol', th_active:'Actief', th_actions:'Acties',
+    reset_pw:'Wachtwoord resetten', deactivate:'Deactiveren', activate:'Activeren', del:'Verwijderen',
+    new_password:'Nieuw wachtwoord', confirm_del:'Deze gebruiker verwijderen?', admin_only:'Alleen beheerders.',
+    role_admin:'Beheerder', role_manager:'Manager', role_reception:'Receptie',
+    role_housekeeping:'Housekeeping', role_maintenance:'Onderhoud', role_finance:'Financieel',
     s_new:'Nieuw', s_confirmed:'Bevestigd', s_pending:'In afwachting', s_cancelled:'Geannuleerd',
     s_no_show:'No-show', s_checked_in:'Ingecheckt', s_in_house:'In huis', s_checked_out:'Uitgecheckt',
     s_invoiced:'Gefactureerd', s_in_review:'In beoordeling', s_in_progress:'In behandeling', s_done:'Klaar',
@@ -107,9 +123,10 @@ const CHAN = { booking:['B','c-booking','Booking.com'], expedia:['E','c-expedia'
 const NAV = [
   ['sec_ops', [['dashboard','▦'],['rooms','▢'],['reservations','▤'],['requests','◷'],['housekeeping','✦'],['maintenance','⚒']]],
   ['sec_biz', [['crm','♛'],['more','◔']]],
+  ['sec_admin', [['settings','⚙']], 'admin'],
 ];
 function renderNav(){
-  $('#nav').innerHTML = NAV.map(([sec,items]) =>
+  $('#nav').innerHTML = NAV.filter(([,,need]) => !need || state.user?.role===need).map(([sec,items]) =>
     `<div class="navsec">${t(sec)}</div>` + items.map(([v,ic]) =>
       `<a data-view="${v}" class="${state.view===v?'active':''}"><span class="ic">${ic}</span> ${t('nav_'+v)}</a>`
     ).join('')
@@ -232,7 +249,74 @@ function viewMore(){
       .map(x=>`<div class="card"><b>${x}</b><div class="muted" style="margin-top:6px">${t('sub_more')}</div></div>`).join('')}</div>`;
 }
 
-const VIEWS = { dashboard:viewDashboard, rooms:viewRooms, reservations:viewReservations,
+const ROLES = ['admin','manager','reception','housekeeping','maintenance','finance'];
+
+async function viewSettings(){
+  if (state.user?.role !== 'admin'){ $('#content').innerHTML = `<div class="note">${t('admin_only')}</div>`; return; }
+  const [h, users] = await Promise.all([api('/settings'), api('/users')]);
+  const roleOpts = (sel) => ROLES.map(r=>`<option value="${r}" ${r===sel?'selected':''}>${t('role_'+r)}</option>`).join('');
+  $('#content').innerHTML = `
+    <div class="grid two">
+      <div class="card">
+        <div class="panelhead"><h3>${t('set_hotel')}</h3></div>
+        <div class="field"><label>${t('set_name')}</label><input id="h_name" value="${h.name||''}"></div>
+        <div class="field"><label>${t('set_city')}</label><input id="h_city" value="${h.city||''}"></div>
+        <div class="field"><label>${t('set_country')}</label><input id="h_country" value="${h.country||''}"></div>
+        <div class="field"><label>${t('set_currency')}</label><input id="h_currency" value="${h.currency||'EUR'}"></div>
+        <button class="btn" id="saveHotel">${t('save')}</button> <span id="hotelMsg" class="muted"></span>
+      </div>
+      <div class="card">
+        <div class="panelhead"><h3>${t('add_user')}</h3></div>
+        <div class="field"><label>${t('th_name')}</label><input id="u_name"></div>
+        <div class="field"><label>${t('th_email')}</label><input id="u_email" type="email"></div>
+        <div class="field"><label>${t('new_password')}</label><input id="u_pw" type="text"></div>
+        <div class="field"><label>${t('th_role')}</label><select id="u_role">${roleOpts('reception')}</select></div>
+        <button class="btn" id="addUser">${t('add_user')}</button> <span id="userMsg" class="muted"></span>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;padding:0;overflow:hidden">
+      <div class="panelhead" style="padding:16px 18px 0"><h3>${t('set_users')}</h3></div>
+      <table style="margin-top:8px"><thead><tr>
+        <th>${t('th_name')}</th><th>${t('th_email')}</th><th>${t('th_role')}</th><th>${t('th_active')}</th><th>${t('th_actions')}</th></tr></thead>
+      <tbody>${users.map(u=>`<tr data-id="${u.id}">
+        <td><b>${u.name}</b></td><td>${u.email}</td>
+        <td><select class="u-role" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px">${roleOpts(u.role)}</select></td>
+        <td>${u.active?'<span class="tag t-green">●</span>':'<span class="tag t-gray">○</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn ghost u-pw" style="padding:5px 9px">${t('reset_pw')}</button>
+          <button class="btn ghost u-toggle" style="padding:5px 9px">${u.active?t('deactivate'):t('activate')}</button>
+          <button class="btn ghost u-del" style="padding:5px 9px;color:var(--red)">${t('del')}</button>
+        </td></tr>`).join('')}</tbody></table>
+    </div>`;
+
+  $('#saveHotel').onclick = async () => {
+    await api('/settings/update',{method:'POST',body:JSON.stringify({
+      name:$('#h_name').value, city:$('#h_city').value, country:$('#h_country').value, currency:$('#h_currency').value })});
+    $('#hotelMsg').textContent = t('saved');
+  };
+  $('#addUser').onclick = async () => {
+    const r = await api('/users/create',{method:'POST',body:JSON.stringify({
+      name:$('#u_name').value, email:$('#u_email').value, password:$('#u_pw').value, role:$('#u_role').value })});
+    if(r.ok) viewSettings(); else $('#userMsg').textContent = r.error||'error';
+  };
+  document.querySelectorAll('#content tbody tr').forEach(tr => {
+    const id = tr.dataset.id;
+    tr.querySelector('.u-role').onchange = (e) => api('/users/update',{method:'POST',body:JSON.stringify({id, role:e.target.value})});
+    tr.querySelector('.u-toggle').onclick = async () => {
+      const active = tr.querySelector('.u-toggle').textContent === t('activate');
+      await api('/users/update',{method:'POST',body:JSON.stringify({id, active})}); viewSettings();
+    };
+    tr.querySelector('.u-pw').onclick = async () => {
+      const pw = prompt(t('new_password')); if(pw){ await api('/users/update',{method:'POST',body:JSON.stringify({id, password:pw})}); }
+    };
+    tr.querySelector('.u-del').onclick = async () => {
+      if(confirm(t('confirm_del'))){ const r = await api('/users/delete',{method:'POST',body:JSON.stringify({id})});
+        if(r.ok) viewSettings(); else alert(r.error||'error'); }
+    };
+  });
+}
+
+const VIEWS = { dashboard:viewDashboard, rooms:viewRooms, reservations:viewReservations, settings:viewSettings,
   requests:viewRequests, housekeeping:viewHousekeeping, maintenance:viewMaintenance, crm:viewCrm, more:viewMore };
 
 async function go(view){
@@ -254,7 +338,12 @@ function showApp(){
   $('#loginView').classList.add('hidden');
   $('#appView').classList.remove('hidden');
   $('#avatar').textContent = (state.user?.name||'M').split(' ').map(x=>x[0]).slice(0,2).join('');
-  applyStaticI18n(); renderNav(); go(state.view);
+  applyStaticI18n(); renderNav(); go(state.view); loadHotelName();
+}
+async function loadHotelName(){
+  try { const h = await api('/settings');
+    if (h && h.name){ const el = document.querySelector('.sidebar .logo small'); if (el) el.textContent = h.name; } }
+  catch {}
 }
 function showLogin(){
   $('#appView').classList.add('hidden');
