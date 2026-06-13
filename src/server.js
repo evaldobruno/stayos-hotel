@@ -27,6 +27,8 @@ const body = (req) => new Promise(r => { let d=''; req.on('data',c=>d+=c); req.o
 const auth = (req) => verifyToken((req.headers.authorization||'').replace(/^Bearer /,''));
 
 function nights(ci, co){ return Math.max(1, Math.round((Date.parse(co)-Date.parse(ci))/86400000)); }
+const log = (ctx, action, entity, id) =>
+  run(`INSERT INTO audit_log(user_id,action,entity,entity_id) VALUES(?,?,?,?)`, ctx?.uid||null, action, entity||null, id||null);
 
 // ---------- API ----------
 const api = {
@@ -119,6 +121,7 @@ api['POST /api/settings/update'] = async (req,res,ctx) => {
   const h = get(`SELECT id FROM hotels LIMIT 1`);
   if (h) run(`UPDATE hotels SET name=?,city=?,country=?,currency=? WHERE id=?`, name,city,country,currency,h.id);
   else   run(`INSERT INTO hotels(name,city,country,currency) VALUES(?,?,?,?)`, name,city,country,currency);
+  log(ctx,'settings-update','hotel',null);
   json(res,200,{ ok:true });
 };
 api['GET /api/users'] = (req,res,ctx) => {
@@ -131,7 +134,7 @@ api['POST /api/users/create'] = async (req,res,ctx) => {
   if(!name||!email||!password) return json(res,400,{error:'missing fields'});
   try { run(`INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)`,
             name, String(email).toLowerCase().trim(), hashPassword(password), role||'reception');
-        json(res,200,{ ok:true }); }
+        log(ctx,'user-create','user',null); json(res,200,{ ok:true }); }
   catch { json(res,400,{error:'email already exists'}); }
 };
 api['POST /api/users/update'] = async (req,res,ctx) => {
@@ -159,7 +162,7 @@ api['POST /api/users/delete'] = async (req,res,ctx) => {
 const ARRIVING = ['confirmed','new','pending'];
 const INHOUSE  = ['in_house','checked_in'];
 
-api['POST /api/reservations/checkin'] = async (req,res) => {
+api['POST /api/reservations/checkin'] = async (req,res,ctx) => {
   const { id, room_number } = await body(req);
   const r = get(`SELECT * FROM reservations WHERE id=?`, id);
   if(!r) return json(res,404,{error:'reservation not found'});
@@ -167,11 +170,14 @@ api['POST /api/reservations/checkin'] = async (req,res) => {
   if (room_number){ const rm = get(`SELECT id FROM rooms WHERE number=?`, room_number);
     if(!rm) return json(res,400,{error:'room not found'}); roomId = rm.id; }
   if(!roomId) return json(res,400,{error:'no room assigned'});
+  const conflict = get(`SELECT code FROM reservations WHERE room_id=? AND status IN ('in_house','checked_in') AND id<>?`, roomId, id);
+  if(conflict) return json(res,409,{error:'Overbooking blocked: room already occupied by '+conflict.code});
   run(`UPDATE reservations SET status='in_house', room_id=? WHERE id=?`, roomId, id);
   run(`UPDATE rooms SET status='occupied' WHERE id=?`, roomId);
+  log(ctx,'check-in','reservation',id);
   json(res,200,{ ok:true });
 };
-api['POST /api/reservations/checkout'] = async (req,res) => {
+api['POST /api/reservations/checkout'] = async (req,res,ctx) => {
   const { id } = await body(req);
   const r = get(`SELECT * FROM reservations WHERE id=?`, id);
   if(!r) return json(res,404,{error:'reservation not found'});
@@ -181,9 +187,10 @@ api['POST /api/reservations/checkout'] = async (req,res) => {
     run(`INSERT INTO housekeeping_tasks(room_id,type,priority,status) VALUES(?,?,?,?)`,
         r.room_id, 'departure', 'high', 'waiting');     // auto-create departure cleaning
   }
+  log(ctx,'check-out','reservation',id);
   json(res,200,{ ok:true });
 };
-api['POST /api/reservations/invoice'] = async (req,res) => {
+api['POST /api/reservations/invoice'] = async (req,res,ctx) => {
   const { id } = await body(req);
   const r = get(`SELECT * FROM reservations WHERE id=?`, id);
   if(!r) return json(res,404,{error:'reservation not found'});
@@ -192,6 +199,7 @@ api['POST /api/reservations/invoice'] = async (req,res) => {
   run(`INSERT INTO invoices(number,type,reservation_id,guest_id,method,amount,status)
        VALUES(?,?,?,?,?,?,?)`, number, 'invoice', r.id, r.guest_id, '—', r.amount, 'unpaid');
   run(`UPDATE reservations SET status='invoiced' WHERE id=?`, id);
+  log(ctx,'invoice','reservation',id);
   json(res,200,{ ok:true, number });
 };
 api['POST /api/reservations/assign'] = async (req,res) => {
@@ -306,6 +314,36 @@ api['POST /api/guest/request'] = async (req,res) => {
   run(`INSERT INTO service_requests(reservation_id,room_id,category,description,status)
        VALUES(?,?,?,?,?)`, r.id, r.room_id, category||'other', description||'', 'new');
   json(res,200,{ ok:true });
+};
+
+
+// ---- Phase 4: channel manager (Booking.com sync), audit log ----
+api['GET /api/channels'] = (req,res) => {
+  const rows = all(`SELECT channel, COUNT(*) c FROM reservations GROUP BY channel`);
+  const map = {}; for (const r of rows) map[r.channel]=r.c;
+  json(res,200, { counts: map, total: all(`SELECT id FROM reservations`).length });
+};
+api['POST /api/channels/sync'] = async (req,res,ctx) => {
+  // Simulated incoming booking from an OTA feed (Booking.com), with anti-overbooking
+  const names = [['Emma','Visser'],['Liam','Jansen'],['Noah','de Boer'],['Olivia','Bakker'],['Sem','Smit']];
+  const room = get(`SELECT id,number FROM rooms WHERE status='available' ORDER BY number LIMIT 1`);
+  if(!room){ return json(res,200,{ imported:0, skipped:1, reason:'no_availability' }); } // overbooking prevented
+  const p = names[Math.floor(Math.random()*names.length)];
+  run(`INSERT INTO guests(first_name,last_name,country,segment) VALUES(?,?,?,?)`, p[0], p[1], 'NL', 'occasional');
+  const gid = get(`SELECT last_insert_rowid() id`).id;
+  const n = get(`SELECT COUNT(*) c FROM reservations`).c + 1;
+  const code = 'BK-' + (90412 + n);
+  run(`INSERT INTO reservations(code,guest_id,room_id,channel,status,check_in,check_out,pax,amount)
+       VALUES(?,?,?,?,?,?,?,?,?)`, code, gid, room.id, 'booking', 'confirmed', '2026-06-20','2026-06-22', 2, 240);
+  run(`UPDATE rooms SET status='reserved' WHERE id=?`, room.id);
+  log(ctx,'channel-sync','reservation',null);
+  json(res,200,{ imported:1, skipped:0, code, room: room.number, guest: p[0]+' '+p[1] });
+};
+api['GET /api/audit'] = (req,res,ctx) => {
+  if(!ctx || ctx.role!=='admin') return json(res,403,{error:'admin only'});
+  json(res,200, all(`SELECT a.action,a.entity,a.entity_id,a.at, u.name user
+                     FROM audit_log a LEFT JOIN users u ON u.id=a.user_id
+                     ORDER BY a.id DESC LIMIT 50`));
 };
 
 const OPEN = new Set(['POST /api/login','GET /api/guest','POST /api/guest/request']);

@@ -46,6 +46,14 @@ const I18N = {
     forwarded:'Forwarded ✓', neg_alert:'Manager alert', act_edit:'Edit', guest_open:'Open guest portal',
     guest_intro:'Guests access this by link or QR code — no app to install. Try it with a demo reservation:',
     ask_doc_type:'Document type (receipt or credit_note):', ask_amount:'Amount in €:', ask_tpl_body:'Edit message text:',
+    nav_channels:'Channels', sub_channels:'Booking.com & OTA synchronisation',
+    nav_reports:'Reports', sub_reports:'Exports and performance',
+    nav_audit:'Activity log', sub_audit:'User activity (admin only)',
+    chan_sync:'Sync now', chan_count:'reservations',
+    chan_intro:'Connected booking channels. Sync imports new reservations and prevents overbooking automatically.',
+    reports_intro:'Download your data for accounting or analysis.',
+    export_res:'Export reservations (CSV)', export_inv:'Export invoices (CSV)', exports:'Exports',
+    th_action:'Action', th_user:'User', th_when:'When', th_entity:'Entity',
     // statuses
     s_new:'New', s_confirmed:'Confirmed', s_pending:'Pending', s_cancelled:'Cancelled',
     s_no_show:'No-show', s_checked_in:'Checked in', s_in_house:'In house', s_checked_out:'Checked out',
@@ -101,6 +109,14 @@ const I18N = {
     forwarded:'Doorgestuurd ✓', neg_alert:'Manager-alert', act_edit:'Bewerken', guest_open:'Gastenportaal openen',
     guest_intro:'Gasten openen dit via link of QR-code — geen app nodig. Probeer het met een demo-reservering:',
     ask_doc_type:'Documenttype (receipt of credit_note):', ask_amount:'Bedrag in €:', ask_tpl_body:'Berichttekst bewerken:',
+    nav_channels:'Kanalen', sub_channels:'Booking.com & OTA-synchronisatie',
+    nav_reports:'Rapporten', sub_reports:'Exports en prestaties',
+    nav_audit:'Activiteitenlog', sub_audit:'Gebruikersactiviteit (alleen beheer)',
+    chan_sync:'Nu synchroniseren', chan_count:'reserveringen',
+    chan_intro:'Verbonden boekingskanalen. Synchroniseren importeert nieuwe reserveringen en voorkomt overboeking automatisch.',
+    reports_intro:'Download uw gegevens voor boekhouding of analyse.',
+    export_res:'Reserveringen exporteren (CSV)', export_inv:'Facturen exporteren (CSV)', exports:'Exports',
+    th_action:'Actie', th_user:'Gebruiker', th_when:'Wanneer', th_entity:'Entiteit',
     s_new:'Nieuw', s_confirmed:'Bevestigd', s_pending:'In afwachting', s_cancelled:'Geannuleerd',
     s_no_show:'No-show', s_checked_in:'Ingecheckt', s_in_house:'In huis', s_checked_out:'Uitgecheckt',
     s_invoiced:'Gefactureerd', s_in_review:'In beoordeling', s_in_progress:'In behandeling', s_done:'Klaar',
@@ -119,6 +135,12 @@ const state = {
 };
 const t = (k) => (I18N[state.lang][k] ?? k);
 const $ = (s) => document.querySelector(s);
+function downloadCSV(name, rows){
+  if(!rows || !rows.length) return;
+  const cols=Object.keys(rows[0]); const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const csv=[cols.join(','), ...rows.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=name; a.click();
+}
 
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, {
@@ -152,8 +174,8 @@ const CHAN = { booking:['B','c-booking','Booking.com'], expedia:['E','c-expedia'
 // ---------- nav ----------
 const NAV = [
   ['sec_ops', [['dashboard','▦'],['rooms','▢'],['reservations','▤'],['requests','◷'],['housekeeping','✦'],['maintenance','⚒']]],
-  ['sec_biz', [['crm','♛'],['billing','€'],['reviews','★'],['messaging','✉'],['guest','▣']]],
-  ['sec_admin', [['settings','⚙']], 'admin'],
+  ['sec_biz', [['crm','♛'],['billing','€'],['reviews','★'],['messaging','✉'],['reports','📊'],['guest','▣']]],
+  ['sec_admin', [['channels','🔌'],['settings','⚙'],['audit','🗂']], 'admin'],
 ];
 function renderNav(){
   $('#nav').innerHTML = NAV.filter(([,,need]) => !need || state.user?.role===need).map(([sec,items]) =>
@@ -414,8 +436,39 @@ function viewGuest(){
     <button class="btn" data-do="open-guest" data-code="${code}">${t('guest_open')} →</button></div>`;
 }
 
+async function viewChannels(){
+  const d = await api('/channels');
+  const CH=[['booking','Booking.com','c-booking','B'],['expedia','Expedia','c-expedia','E'],['airbnb','Airbnb','c-airbnb','A'],['direct','Direct','c-direct','D']];
+  $('#content').innerHTML = `<div class="note">${t('chan_intro')}</div>
+    <div style="margin-bottom:14px"><button class="btn" data-do="chan-sync">⟳ ${t('chan_sync')}</button></div>
+    <div class="grid kpis">${CH.map(([k,name,cls,ltr])=>`<div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="chan ${cls}">${ltr}</span><b>${name}</b></div>
+      <div class="kpi"><div class="val">${d.counts[k]||0}</div><div class="muted">${t('chan_count')}</div></div></div>`).join('')}</div>`;
+}
+
+async function viewReports(){
+  const [res, inv] = await Promise.all([api('/reservations'), api('/invoices')]);
+  const rev = inv.filter(i=>i.amount>0).reduce((s,i)=>s+i.amount,0);
+  $('#content').innerHTML = `<div class="note">${t('reports_intro')}</div>
+    <div class="grid three" style="margin-bottom:16px">
+      <div class="card kpi"><div class="lbl">${t('nav_reservations')}</div><div class="val">${res.length}</div></div>
+      <div class="card kpi"><div class="lbl">${t('nav_billing')}</div><div class="val">${inv.length}</div></div>
+      <div class="card kpi"><div class="lbl">${t('bill_invoiced')}</div><div class="val">€${rev.toLocaleString()}</div></div></div>
+    <div class="card"><div class="panelhead"><h3>${t('exports')}</h3></div>
+      <button class="btn" data-do="export-res">⬇ ${t('export_res')}</button>
+      <button class="btn ghost" data-do="export-inv" style="margin-left:8px">⬇ ${t('export_inv')}</button></div>`;
+}
+
+async function viewAudit(){
+  const rows = await api('/audit');
+  $('#content').innerHTML = `<div class="card" style="padding:0;overflow:hidden"><table>
+    <thead><tr><th>${t('th_when')}</th><th>${t('th_user')}</th><th>${t('th_action')}</th><th>${t('th_entity')}</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td class="muted">${r.at}</td><td>${r.user||'—'}</td>
+      <td><span class="tag t-blue">${r.action}</span></td><td class="muted">${r.entity||''} ${r.entity_id||''}</td></tr>`).join('')||`<tr><td colspan="4" class="muted" style="padding:20px">—</td></tr>`}</tbody></table></div>`;
+}
+
 const VIEWS = { dashboard:viewDashboard, rooms:viewRooms, reservations:viewReservations, settings:viewSettings,
-  requests:viewRequests, housekeeping:viewHousekeeping, maintenance:viewMaintenance, crm:viewCrm, billing:viewBilling, reviews:viewReviews, messaging:viewMessaging, guest:viewGuest, more:viewMore };
+  requests:viewRequests, housekeeping:viewHousekeeping, maintenance:viewMaintenance, crm:viewCrm, billing:viewBilling, reviews:viewReviews, messaging:viewMessaging, channels:viewChannels, reports:viewReports, audit:viewAudit, guest:viewGuest, more:viewMore };
 
 async function go(view){
   state.view = view;
@@ -492,6 +545,10 @@ document.getElementById('content').addEventListener('click', async (e) => {
     else if (doit==='rv-forward'){ await api('/reviews/forward',{method:'POST',body:JSON.stringify({id})}); go('reviews'); }
     else if (doit==='tpl-edit'){ const txt=prompt(t('ask_tpl_body')); if(txt!==null){ await api('/templates/update',{method:'POST',body:JSON.stringify({id, body:txt})}); go('messaging'); } }
     else if (doit==='open-guest'){ window.open('guest.html?code='+encodeURIComponent(b.dataset.code),'_blank'); }
+    else if (doit==='chan-sync'){ const r=await api('/channels/sync',{method:'POST',body:'{}'});
+      alert(r.imported ? ('+'+r.imported+' · '+(r.code||'')+' · '+(r.guest||'')+' · room '+(r.room||'')) : 'No availability — overbooking prevented'); go('channels'); }
+    else if (doit==='export-res'){ downloadCSV('reservations.csv', await api('/reservations')); }
+    else if (doit==='export-inv'){ downloadCSV('invoices.csv', await api('/invoices')); }
   } catch(err){ alert(err.message); }
 });
 
