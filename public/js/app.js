@@ -31,6 +31,11 @@ const I18N = {
     new_password:'New password', confirm_del:'Delete this user?', admin_only:'Administrators only.',
     role_admin:'Administrator', role_manager:'Manager', role_reception:'Reception',
     role_housekeeping:'Housekeeping', role_maintenance:'Maintenance', role_finance:'Finance',
+    act_checkin:'Check-in', act_checkout:'Check-out', act_invoice:'Invoice', act_start:'Start cleaning',
+    act_clean_done:'Mark clean', act_advance:'Advance', act_assign_to:'Assign', act_new_issue:'New issue',
+    act_block:'Block', act_unblock:'Unblock', done_check:'✓',
+    ask_room:'Room number for check-in:', ask_assignee:'Assign to (name):',
+    ask_issue:'Describe the issue:', ask_location:'Location (e.g. Room 204), optional:', invoiced_ok:'Invoice created:',
     // statuses
     s_new:'New', s_confirmed:'Confirmed', s_pending:'Pending', s_cancelled:'Cancelled',
     s_no_show:'No-show', s_checked_in:'Checked in', s_in_house:'In house', s_checked_out:'Checked out',
@@ -71,6 +76,11 @@ const I18N = {
     new_password:'Nieuw wachtwoord', confirm_del:'Deze gebruiker verwijderen?', admin_only:'Alleen beheerders.',
     role_admin:'Beheerder', role_manager:'Manager', role_reception:'Receptie',
     role_housekeeping:'Housekeeping', role_maintenance:'Onderhoud', role_finance:'Financieel',
+    act_checkin:'Inchecken', act_checkout:'Uitchecken', act_invoice:'Factureren', act_start:'Schoonmaak starten',
+    act_clean_done:'Schoon melden', act_advance:'Volgende', act_assign_to:'Toewijzen', act_new_issue:'Nieuwe storing',
+    act_block:'Blokkeren', act_unblock:'Deblokkeren', done_check:'✓',
+    ask_room:'Kamernummer voor check-in:', ask_assignee:'Toewijzen aan (naam):',
+    ask_issue:'Beschrijf de storing:', ask_location:'Locatie (bv. Kamer 204), optioneel:', invoiced_ok:'Factuur aangemaakt:',
     s_new:'Nieuw', s_confirmed:'Bevestigd', s_pending:'In afwachting', s_cancelled:'Geannuleerd',
     s_no_show:'No-show', s_checked_in:'Ingecheckt', s_in_house:'In huis', s_checked_out:'Uitgecheckt',
     s_invoiced:'Gefactureerd', s_in_review:'In beoordeling', s_in_progress:'In behandeling', s_done:'Klaar',
@@ -190,41 +200,59 @@ async function viewRooms(){
 
 async function viewReservations(){
   const rows = await api('/reservations');
+  const ARR=['confirmed','new','pending'], INH=['in_house','checked_in'];
   $('#content').innerHTML = `<div class="card" style="padding:0;overflow:hidden"><table>
     <thead><tr><th>${t('th_booking')}</th><th>${t('th_guest')}</th><th>${t('th_channel')}</th><th>${t('th_room')}</th>
-    <th>${t('th_checkin')}</th><th>${t('th_checkout')}</th><th>${t('th_pax')}</th><th>${t('th_amount')}</th><th>${t('th_status')}</th></tr></thead>
-    <tbody>${rows.map(r=>{const[ltr,cls,name]=CHAN[r.channel]||['?','c-direct',r.channel];return `<tr>
+    <th>${t('th_checkin')}</th><th>${t('th_checkout')}</th><th>${t('th_pax')}</th><th>${t('th_amount')}</th><th>${t('th_status')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{const[ltr,cls,name]=CHAN[r.channel]||['?','c-direct',r.channel];
+      let act='<span class="muted">—</span>';
+      if(ARR.includes(r.status)) act=`<button class="btn" data-do="checkin" data-id="${r.id}" data-room="${r.room||''}" style="padding:5px 10px">${t('act_checkin')}</button>`;
+      else if(INH.includes(r.status)) act=`<button class="btn" data-do="checkout" data-id="${r.id}" style="padding:5px 10px">${t('act_checkout')}</button>`;
+      else if(r.status==='checked_out') act=`<button class="btn" data-do="invoice" data-id="${r.id}" style="padding:5px 10px">${t('act_invoice')}</button>`;
+      return `<tr>
       <td><b>${r.code}</b></td><td>${r.guest}${r.segment==='vip'?' ♛':''}</td>
       <td><span class="chan ${cls}">${ltr}</span> <span class="muted">${name}</span></td>
       <td>${r.room||'—'}</td><td>${r.check_in}</td><td>${r.check_out}</td><td>${r.pax}</td>
-      <td><b>€${r.amount}</b></td><td>${stTag(r.status)}</td></tr>`;}).join('')}</tbody></table></div>`;
+      <td><b>€${r.amount}</b></td><td>${stTag(r.status)}</td><td style="white-space:nowrap">${act}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
 
 async function viewRequests(){
   const rows = await api('/requests');
+  const NEXT={new:'in_progress', in_review:'in_progress', in_progress:'done', done:null, cancelled:null};
   $('#content').innerHTML = `<div class="card" style="padding:0;overflow:hidden"><table>
     <thead><tr><th>#</th><th>${t('th_request')}</th><th>${t('th_room')}</th><th>${t('th_category')}</th>
-    <th>${t('th_assigned')}</th><th>${t('th_status')}</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td><b>#${r.id}</b></td><td>${r.description}</td><td>${r.room||'—'}</td>
-      <td>${r.category}</td><td>${r.assigned_to||'—'}</td><td>${stTag(r.status)}</td></tr>`).join('')}</tbody></table></div>`;
+    <th>${t('th_assigned')}</th><th>${t('th_status')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ let act='';
+      if(NEXT[r.status]) act+=`<button class="btn" data-do="req-status" data-id="${r.id}" data-status="${NEXT[r.status]}" style="padding:5px 9px">${t('act_advance')}</button> `;
+      act+=`<button class="btn ghost" data-do="req-assign" data-id="${r.id}" style="padding:5px 9px">${t('act_assign_to')}</button>`;
+      return `<tr><td><b>#${r.id}</b></td><td>${r.description}</td><td>${r.room||'—'}</td>
+      <td>${r.category}</td><td>${r.assigned_to||'—'}</td><td>${stTag(r.status)}</td><td style="white-space:nowrap">${act}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
 
 async function viewHousekeeping(){
   const rows = await api('/housekeeping');
   $('#content').innerHTML = `<div class="card" style="padding:0;overflow:hidden"><table>
     <thead><tr><th>${t('th_room')}</th><th>${t('th_type')}</th><th>${t('th_priority')}</th>
-    <th>${t('th_assigned')}</th><th>${t('th_status')}</th><th>${t('th_notes')}</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td><b>${r.room}</b></td><td>${r.type}</td><td>${prTag(r.priority)}</td>
-      <td>${r.assigned_to||'—'}</td><td>${stTag(r.status)}</td><td class="muted">${r.notes||'—'}</td></tr>`).join('')}</tbody></table></div>`;
+    <th>${t('th_assigned')}</th><th>${t('th_status')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ let act=`<span class="tag t-green">${t('done_check')}</span>`;
+      if(r.status==='waiting') act=`<button class="btn" data-do="hk" data-id="${r.id}" data-status="cleaning" style="padding:5px 10px">${t('act_start')}</button>`;
+      else if(r.status==='cleaning') act=`<button class="btn" data-do="hk" data-id="${r.id}" data-status="done" style="padding:5px 10px">${t('act_clean_done')}</button>`;
+      return `<tr><td><b>${r.room}</b></td><td>${r.type}</td><td>${prTag(r.priority)}</td>
+      <td>${r.assigned_to||'—'}</td><td>${stTag(r.status)}</td><td>${act}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
 
 async function viewMaintenance(){
   const rows = await api('/maintenance');
-  $('#content').innerHTML = `<div class="card" style="padding:0;overflow:hidden"><table>
+  const NEXT={reported:'in_repair', in_review:'in_repair', in_repair:'done', done:null};
+  $('#content').innerHTML = `<div style="margin-bottom:12px"><button class="btn" data-do="mnt-new">+ ${t('act_new_issue')}</button></div>
+    <div class="card" style="padding:0;overflow:hidden"><table>
     <thead><tr><th>#</th><th>${t('th_issue')}</th><th>${t('th_location')}</th><th>${t('th_source')}</th>
-    <th>${t('th_priority')}</th><th>${t('th_status')}</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td><b>${r.code}</b></td><td>${r.description}</td><td>${r.location||('Room '+r.room)}</td>
-      <td><span class="tag t-blue">${r.source}</span></td><td>${prTag(r.priority)}</td><td>${stTag(r.status)}</td></tr>`).join('')}</tbody></table></div>`;
+    <th>${t('th_priority')}</th><th>${t('th_status')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ let act='';
+      if(NEXT[r.status]) act+=`<button class="btn" data-do="mnt-status" data-id="${r.id}" data-status="${NEXT[r.status]}" style="padding:5px 9px">${t('act_advance')}</button> `;
+      if(r.room) act+=`<button class="btn ghost" data-do="mnt-block" data-room="${r.room}" data-block="1" style="padding:5px 9px">${t('act_block')}</button>`;
+      return `<tr><td><b>${r.code}</b></td><td>${r.description}</td><td>${r.location||('Room '+r.room)}</td>
+      <td><span class="tag t-blue">${r.source}</span></td><td>${prTag(r.priority)}</td><td>${stTag(r.status)}</td><td style="white-space:nowrap">${act}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
 
 async function viewCrm(){
@@ -369,6 +397,28 @@ $('#loginForm').addEventListener('submit', async (e) => {
   } else { $('#loginErr').textContent = r.error || 'Login failed'; }
 });
 $('#logoutBtn').addEventListener('click', doLogout);
+
+// Phase 2: one delegated handler for all action buttons
+document.getElementById('content').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-do]'); if(!b) return;
+  const id = b.dataset.id, doit = b.dataset.do;
+  try {
+    if (doit==='checkin'){ let room=b.dataset.room; if(!room){ room=prompt(t('ask_room')); if(!room) return; }
+      const r=await api('/reservations/checkin',{method:'POST',body:JSON.stringify({id, room_number:Number(room)})});
+      if(r.error) return alert(r.error); go('reservations'); }
+    else if (doit==='checkout'){ const r=await api('/reservations/checkout',{method:'POST',body:JSON.stringify({id})}); if(r.error) return alert(r.error); go('reservations'); }
+    else if (doit==='invoice'){ const r=await api('/reservations/invoice',{method:'POST',body:JSON.stringify({id})}); if(r.ok) alert(t('invoiced_ok')+' '+r.number); go('reservations'); }
+    else if (doit==='hk'){ await api('/housekeeping/status',{method:'POST',body:JSON.stringify({id, status:b.dataset.status})}); go('housekeeping'); }
+    else if (doit==='req-status'){ await api('/requests/status',{method:'POST',body:JSON.stringify({id, status:b.dataset.status})}); go('requests'); }
+    else if (doit==='req-assign'){ const who=prompt(t('ask_assignee')); if(who){ await api('/requests/assign',{method:'POST',body:JSON.stringify({id, assigned_to:who})}); go('requests'); } }
+    else if (doit==='mnt-status'){ await api('/maintenance/status',{method:'POST',body:JSON.stringify({id, status:b.dataset.status})}); go('maintenance'); }
+    else if (doit==='mnt-block'){ await api('/maintenance/block',{method:'POST',body:JSON.stringify({room_number:Number(b.dataset.room), block:b.dataset.block==='1'})}); go('maintenance'); }
+    else if (doit==='mnt-new'){ const desc=prompt(t('ask_issue')); if(!desc) return; const loc=prompt(t('ask_location'))||'';
+      const m=loc.match(/\d+/);
+      await api('/maintenance/create',{method:'POST',body:JSON.stringify({description:desc, location:loc, room_number:m?Number(m[0]):null, priority:'medium'})}); go('maintenance'); }
+  } catch(err){ alert(err.message); }
+});
+
 $('#langsw').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if(!b) return;
   state.lang = b.dataset.lang; localStorage.setItem('stayos_lang', state.lang);

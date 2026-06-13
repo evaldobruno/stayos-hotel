@@ -89,11 +89,11 @@ const api = {
      FROM service_requests sr LEFT JOIN rooms rm ON rm.id=sr.room_id ORDER BY sr.id DESC`)),
 
   'GET /api/maintenance': (req,res) => json(res,200, all(
-    `SELECT mi.code, mi.location, mi.description, mi.source, mi.priority, mi.status, rm.number room
+    `SELECT mi.id, mi.code, mi.location, mi.description, mi.source, mi.priority, mi.status, rm.number room
      FROM maintenance_issues mi LEFT JOIN rooms rm ON rm.id=mi.room_id ORDER BY mi.id DESC`)),
 
   'GET /api/housekeeping': (req,res) => json(res,200, all(
-    `SELECT hk.type, hk.priority, hk.assigned_to, hk.status, hk.notes, rm.number room
+    `SELECT hk.id, hk.type, hk.priority, hk.assigned_to, hk.status, hk.notes, rm.number room
      FROM housekeeping_tasks hk JOIN rooms rm ON rm.id=hk.room_id ORDER BY hk.priority DESC`)),
 };
 
@@ -151,6 +151,100 @@ api['POST /api/users/delete'] = async (req,res,ctx) => {
   const { id } = await body(req);
   if(Number(id)===ctx.uid) return json(res,400,{error:'cannot delete yourself'});
   run(`DELETE FROM users WHERE id=?`, id);
+  json(res,200,{ ok:true });
+};
+
+
+// ---- Phase 2: operational actions (guest flow, housekeeping, maintenance, requests) ----
+const ARRIVING = ['confirmed','new','pending'];
+const INHOUSE  = ['in_house','checked_in'];
+
+api['POST /api/reservations/checkin'] = async (req,res) => {
+  const { id, room_number } = await body(req);
+  const r = get(`SELECT * FROM reservations WHERE id=?`, id);
+  if(!r) return json(res,404,{error:'reservation not found'});
+  let roomId = r.room_id;
+  if (room_number){ const rm = get(`SELECT id FROM rooms WHERE number=?`, room_number);
+    if(!rm) return json(res,400,{error:'room not found'}); roomId = rm.id; }
+  if(!roomId) return json(res,400,{error:'no room assigned'});
+  run(`UPDATE reservations SET status='in_house', room_id=? WHERE id=?`, roomId, id);
+  run(`UPDATE rooms SET status='occupied' WHERE id=?`, roomId);
+  json(res,200,{ ok:true });
+};
+api['POST /api/reservations/checkout'] = async (req,res) => {
+  const { id } = await body(req);
+  const r = get(`SELECT * FROM reservations WHERE id=?`, id);
+  if(!r) return json(res,404,{error:'reservation not found'});
+  run(`UPDATE reservations SET status='checked_out' WHERE id=?`, id);
+  if (r.room_id){
+    run(`UPDATE rooms SET status='cleaning' WHERE id=?`, r.room_id);
+    run(`INSERT INTO housekeeping_tasks(room_id,type,priority,status) VALUES(?,?,?,?)`,
+        r.room_id, 'departure', 'high', 'waiting');     // auto-create departure cleaning
+  }
+  json(res,200,{ ok:true });
+};
+api['POST /api/reservations/invoice'] = async (req,res) => {
+  const { id } = await body(req);
+  const r = get(`SELECT * FROM reservations WHERE id=?`, id);
+  if(!r) return json(res,404,{error:'reservation not found'});
+  const n = get(`SELECT COUNT(*) c FROM invoices`).c + 1;
+  const number = 'INV 2026/' + (1182 + n);
+  run(`INSERT INTO invoices(number,type,reservation_id,guest_id,method,amount,status)
+       VALUES(?,?,?,?,?,?,?)`, number, 'invoice', r.id, r.guest_id, '—', r.amount, 'unpaid');
+  run(`UPDATE reservations SET status='invoiced' WHERE id=?`, id);
+  json(res,200,{ ok:true, number });
+};
+api['POST /api/reservations/assign'] = async (req,res) => {
+  const { id, room_number } = await body(req);
+  const rm = get(`SELECT id FROM rooms WHERE number=?`, room_number);
+  if(!rm) return json(res,400,{error:'room not found'});
+  run(`UPDATE reservations SET room_id=? WHERE id=?`, rm.id, id);
+  json(res,200,{ ok:true });
+};
+
+api['POST /api/housekeeping/status'] = async (req,res) => {
+  const { id, status } = await body(req);
+  const tk = get(`SELECT * FROM housekeeping_tasks WHERE id=?`, id);
+  if(!tk) return json(res,404,{error:'task not found'});
+  run(`UPDATE housekeeping_tasks SET status=? WHERE id=?`, status, id);
+  if (status==='cleaning') run(`UPDATE rooms SET status='cleaning' WHERE id=? AND status IN ('available','cleaning')`, tk.room_id);
+  if (status==='done')     run(`UPDATE rooms SET status='available' WHERE id=? AND status='cleaning'`, tk.room_id);
+  json(res,200,{ ok:true });
+};
+
+api['POST /api/maintenance/create'] = async (req,res) => {
+  const { description, location, room_number, priority, source } = await body(req);
+  if(!description) return json(res,400,{error:'description required'});
+  let roomId = null, loc = location || null;
+  if (room_number){ const rm = get(`SELECT id FROM rooms WHERE number=?`, room_number);
+    if(rm){ roomId = rm.id; loc = loc || ('Room ' + room_number); } }
+  const n = get(`SELECT COUNT(*) c FROM maintenance_issues`).c + 1;
+  const code = 'M-' + (218 + n);
+  run(`INSERT INTO maintenance_issues(code,room_id,location,description,source,priority,status)
+       VALUES(?,?,?,?,?,?,?)`, code, roomId, loc, description, source||'staff', priority||'medium', 'reported');
+  json(res,200,{ ok:true, code });
+};
+api['POST /api/maintenance/status'] = async (req,res) => {
+  const { id, status } = await body(req);
+  run(`UPDATE maintenance_issues SET status=? WHERE id=?`, status, id);
+  json(res,200,{ ok:true });
+};
+api['POST /api/maintenance/block'] = async (req,res) => {
+  const { room_number, block } = await body(req);
+  const rm = get(`SELECT id FROM rooms WHERE number=?`, room_number);
+  if(!rm) return json(res,400,{error:'room not found'});
+  run(`UPDATE rooms SET status=? WHERE id=?`, block ? 'blocked' : 'available', rm.id);
+  json(res,200,{ ok:true });
+};
+
+api['POST /api/requests/status'] = async (req,res) => {
+  const { id, status } = await body(req);
+  run(`UPDATE service_requests SET status=? WHERE id=?`, status, id);
+  json(res,200,{ ok:true });
+};
+api['POST /api/requests/assign'] = async (req,res) => {
+  const { id, assigned_to } = await body(req);
+  run(`UPDATE service_requests SET assigned_to=? WHERE id=?`, assigned_to, id);
   json(res,200,{ ok:true });
 };
 
