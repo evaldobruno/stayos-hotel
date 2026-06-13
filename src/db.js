@@ -100,6 +100,10 @@ const SCHEMA = [
     user_id INTEGER REFERENCES users(id),
     action TEXT NOT NULL, entity TEXT, entity_id INTEGER,
     at TEXT DEFAULT (datetime('now')))`,
+  `CREATE TABLE IF NOT EXISTS message_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE, name_en TEXT, name_nl TEXT,
+    channel TEXT, subject TEXT, body TEXT, active INTEGER DEFAULT 1)`,
 ];
 
 export function initSchema() { for (const s of SCHEMA) db.exec(s); }

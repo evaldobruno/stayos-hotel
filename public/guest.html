@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StayOS — Guest Portal</title>
+<style>
+  :root{--bg:#0f1729;--panel:#16203a;--panel2:#1d2a4a;--line:#27365c;--text:#e8edf7;--muted:#92a0c0;--brand:#5b8cff;--purple:#a78bfa;--green:#3ecf8e;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;padding:0}
+  .wrap{width:100%;max-width:440px;min-height:100vh;background:var(--bg)}
+  .head{background:linear-gradient(135deg,var(--brand),var(--purple));padding:22px 20px 28px;color:#fff;position:relative}
+  .langsw{position:absolute;top:16px;right:16px;display:inline-flex;background:rgba(255,255,255,.18);border-radius:8px;padding:3px}
+  .langsw button{background:none;border:none;color:#fff;padding:4px 9px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;opacity:.7}
+  .langsw button.on{background:#fff;color:#2a3c6b;opacity:1}
+  .head .h{font-size:12px;opacity:.85;letter-spacing:.5px}
+  .head .g{font-size:23px;font-weight:800;margin-top:4px}
+  .head .s{opacity:.92;font-size:13px;margin-top:2px}
+  .card{background:var(--panel);margin:-18px 16px 0;border-radius:14px;padding:16px;border:1px solid var(--line);position:relative}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .lbl{color:var(--muted);font-size:11px}
+  .sec{padding:16px 16px 4px;font-weight:700}
+  .item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .ic{width:38px;height:38px;border-radius:10px;background:var(--panel2);display:grid;place-items:center;font-size:17px;flex-shrink:0}
+  .item b{font-size:14px}.item .d{color:var(--muted);font-size:12px}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(62,207,142,.15);color:var(--green)}
+  .form{padding:8px 16px 20px}
+  .form.hidden{display:none}
+  select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px;font-size:14px;margin-top:8px;font-family:inherit}
+  .btn{width:100%;background:var(--brand);color:#fff;border:none;padding:13px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;margin-top:12px}
+  .btn.sm{width:auto;padding:8px 14px;margin:0}
+  .msg{text-align:center;color:var(--green);font-size:13px;margin-top:10px;min-height:18px}
+  .err{text-align:center;color:#ff6b6b;padding:40px 20px}
+  .foot{text-align:center;color:var(--muted);font-size:11px;padding:20px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="err" id="loading">…</div></div>
+
+<script>
+const T={
+  en:{hello:'Hi',room:'Room',checkout:'CHECK-OUT',status:'Status',request:'Request a service',
+    pick:'Choose a service…',desc:'Anything we should know? (optional)',send:'Send request',
+    sent:'Request sent ✓ Our team will take care of it.',info:'Useful info',
+    wifi:'Wi-Fi',breakfast:'Breakfast',reception:'Reception',notfound:'Reservation not found. Please check your link.',
+    cats:{housekeeping:'Extra cleaning / towels',roomservice:'Room service',spa:'Spa & wellness',transport:'Transport / transfer',maintenance:'Report an issue',reception:'Message reception'}},
+  nl:{hello:'Hoi',room:'Kamer',checkout:'CHECK-OUT',status:'Status',request:'Een dienst aanvragen',
+    pick:'Kies een dienst…',desc:'Iets dat we moeten weten? (optioneel)',send:'Verzoek versturen',
+    sent:'Verzoek verstuurd ✓ Ons team regelt het.',info:'Handige info',
+    wifi:'Wifi',breakfast:'Ontbijt',reception:'Receptie',notfound:'Reservering niet gevonden. Controleer uw link.',
+    cats:{housekeeping:'Extra schoonmaak / handdoeken',roomservice:'Roomservice',spa:'Spa & wellness',transport:'Vervoer / transfer',maintenance:'Storing melden',reception:'Receptie berichten'}}
+};
+let lang = localStorage.getItem('guest_lang') || 'en';
+const code = new URLSearchParams(location.search).get('code') || 'BK-90412';
+let data = null;
+
+async function load(){
+  const r = await fetch('/api/guest?code='+encodeURIComponent(code));
+  if(!r.ok){ document.getElementById('app').innerHTML = `<div class="err">${T[lang].notfound}</div>`; return; }
+  data = await r.json(); render();
+}
+function render(){
+  const L=T[lang], res=data.reservation, h=data.hotel;
+  const first=res.guest.split(' ')[0];
+  const catOpts=Object.entries(L.cats).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="langsw"><button data-l="en" class="${lang==='en'?'on':''}">EN</button><button data-l="nl" class="${lang==='nl'?'on':''}">NL</button></div>
+      <div class="h">${h.name.toUpperCase()}</div>
+      <div class="g">${L.hello}, ${first} 👋</div>
+      <div class="s">${L.room} ${res.room||'—'} · ${res.check_in} → ${res.check_out}</div>
+    </div>
+    <div class="card"><div class="row"><div><div class="lbl">${L.checkout}</div><b>${res.check_out} · 11:00</b></div>
+      <span class="tag">${res.status}</span></div></div>
+    <div class="sec">${L.request}</div>
+    <div class="form" id="form">
+      <select id="cat">${catOpts}</select>
+      <textarea id="desc" rows="3" placeholder="${L.desc}"></textarea>
+      <button class="btn" id="send">${L.send}</button>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="sec">${L.info}</div>
+    <div class="item"><div class="ic">📶</div><div><b>${L.wifi}</b><div class="d">DemoHotel_Guest</div></div></div>
+    <div class="item"><div class="ic">🍳</div><div><b>${L.breakfast}</b><div class="d">7:30 – 10:30</div></div></div>
+    <div class="item"><div class="ic">💬</div><div><b>${L.reception}</b><div class="d">+31 0 000 0000 · 24/7</div></div></div>
+    <div class="foot">Powered by StayOS</div>`;
+  document.querySelectorAll('.langsw button').forEach(b=>b.onclick=()=>{lang=b.dataset.l;localStorage.setItem('guest_lang',lang);render();});
+  document.getElementById('send').onclick = async ()=>{
+    const r = await fetch('/api/guest/request',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code, category:document.getElementById('cat').value, description:document.getElementById('desc').value})});
+    if(r.ok){ document.getElementById('msg').textContent=T[lang].sent; document.getElementById('desc').value=''; }
+  };
+}
+load();
+</script>
+</body>
+</html>

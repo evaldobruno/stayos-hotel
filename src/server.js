@@ -248,7 +248,67 @@ api['POST /api/requests/assign'] = async (req,res) => {
   json(res,200,{ ok:true });
 };
 
-const OPEN = new Set(['POST /api/login']);
+
+// ---- Phase 3: billing, reviews, messaging templates, guest portal ----
+api['GET /api/invoices'] = (req,res) => json(res,200, all(
+  `SELECT i.id,i.number,i.type,i.method,i.amount,i.status,i.issued_at,
+          g.first_name||' '||g.last_name guest, g.company, rm.number room
+   FROM invoices i LEFT JOIN guests g ON g.id=i.guest_id
+   LEFT JOIN reservations r ON r.id=i.reservation_id
+   LEFT JOIN rooms rm ON rm.id=r.room_id ORDER BY i.id DESC`));
+api['POST /api/invoices/status'] = async (req,res) => {
+  const { id, status } = await body(req);
+  run(`UPDATE invoices SET status=? WHERE id=?`, status, id); json(res,200,{ ok:true });
+};
+api['POST /api/invoices/create'] = async (req,res) => {
+  const d = await body(req);
+  const n = get(`SELECT COUNT(*) c FROM invoices`).c + 1;
+  const pre = d.type==='receipt'?'RC':d.type==='credit_note'?'CN':'INV';
+  const number = pre + ' 2026/' + (1182 + n);
+  run(`INSERT INTO invoices(number,type,guest_id,method,amount,status) VALUES(?,?,?,?,?,?)`,
+      number, d.type||'invoice', d.guest_id||null, d.method||'-', d.amount||0,
+      d.type==='credit_note'?'issued':'unpaid');
+  json(res,200,{ ok:true, number });
+};
+
+api['GET /api/reviews'] = (req,res) => json(res,200, all(
+  `SELECT rv.id, rv.rating, rv.categories, rv.comment, rv.forwarded,
+          g.first_name||' '||g.last_name guest
+   FROM reviews rv LEFT JOIN guests g ON g.id=rv.guest_id ORDER BY rv.id DESC`));
+api['POST /api/reviews/forward'] = async (req,res) => {
+  const { id } = await body(req); run(`UPDATE reviews SET forwarded=1 WHERE id=?`, id); json(res,200,{ ok:true });
+};
+
+api['GET /api/templates'] = (req,res) => json(res,200, all(`SELECT * FROM message_templates ORDER BY id`));
+api['POST /api/templates/update'] = async (req,res) => {
+  const d = await body(req);
+  run(`UPDATE message_templates SET subject=COALESCE(?,subject), body=COALESCE(?,body),
+       channel=COALESCE(?,channel), active=COALESCE(?,active) WHERE id=?`,
+      d.subject??null, d.body??null, d.channel??null, (d.active===undefined?null:(d.active?1:0)), d.id);
+  json(res,200,{ ok:true });
+};
+
+// Public guest portal (no auth)
+api['GET /api/guest'] = (req,res) => {
+  const code = new URL(req.url,'http://x').searchParams.get('code');
+  const r = get(`SELECT r.code,r.check_in,r.check_out,r.pax,r.status, rm.number room,
+                 g.first_name||' '||g.last_name guest FROM reservations r
+                 JOIN guests g ON g.id=r.guest_id LEFT JOIN rooms rm ON rm.id=r.room_id
+                 WHERE r.code=?`, code);
+  if(!r) return json(res,404,{ error:'reservation not found' });
+  const h = get(`SELECT name,city,country FROM hotels LIMIT 1`);
+  json(res,200,{ reservation:r, hotel:h });
+};
+api['POST /api/guest/request'] = async (req,res) => {
+  const { code, category, description } = await body(req);
+  const r = get(`SELECT id,room_id FROM reservations WHERE code=?`, code);
+  if(!r) return json(res,404,{ error:'reservation not found' });
+  run(`INSERT INTO service_requests(reservation_id,room_id,category,description,status)
+       VALUES(?,?,?,?,?)`, r.id, r.room_id, category||'other', description||'', 'new');
+  json(res,200,{ ok:true });
+};
+
+const OPEN = new Set(['POST /api/login','GET /api/guest','POST /api/guest/request']);
 
 async function serveStatic(req,res){
   let p = decodeURIComponent(req.url.split('?')[0]);

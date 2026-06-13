@@ -4,7 +4,7 @@ import { hashPassword } from './auth.js';
 
 initSchema();
 
-const TABLES = ['reviews','invoices','maintenance_issues','housekeeping_tasks',
+const TABLES = ['message_templates','reviews','invoices','maintenance_issues','housekeeping_tasks',
   'service_requests','reservations','guests','rooms','room_types','users','audit_log','hotels'];
 db.exec('PRAGMA foreign_keys = OFF;');
 for (const t of TABLES) db.exec(`DELETE FROM ${t};`);
@@ -156,20 +156,20 @@ for (const [rcode,gk,rating,cats,comment,fwd] of rv) {
        VALUES(?,?,?,?,?,?)`, r.id, guestId[gk], rating, JSON.stringify(cats), comment, fwd);
 }
 
+
+const tpls = [
+  ['booking_confirmation','Booking confirmation','Boekingsbevestiging','email','Your booking at {{hotel}}','Hi {{guest_name}}, your booking {{code}} is confirmed for {{check_in}} to {{check_out}}. We look forward to welcoming you.'],
+  ['precheckin','Pre-check-in link','Pre-check-in-link','email','Complete your online check-in','Hi {{guest_name}}, please complete your online check-in before arrival: {{checkin_link}}'],
+  ['welcome','Welcome (arrival day)','Welkom (aankomstdag)','whatsapp','Welcome','Hi {{guest_name}}! Your room {{room}} is ready. Wi-Fi: {{wifi}}. Breakfast 7:30-10:30.'],
+  ['midstay','Everything OK?','Alles naar wens?','whatsapp','','Hi {{guest_name}}, is everything to your liking? Reply to this message and we will help right away.'],
+  ['checkout_reminder','Check-out reminder','Check-out-herinnering','email','Check-out tomorrow','Hi {{guest_name}}, check-out is tomorrow at 11:00. Would you like a late check-out?'],
+  ['thankyou_review','Thank you + review','Bedankt + review','email','Thank you for staying with us','Hi {{guest_name}}, thank you for staying with us! Please rate your experience: {{review_link}}'],
+];
+for (const [key,en,nl,ch,subj,bd] of tpls)
+  run(`INSERT INTO message_templates(key,name_en,name_nl,channel,subject,body) VALUES(?,?,?,?,?,?)`, key,en,nl,ch,subj,bd);
+
 const counts = {};
-for (const t of ['rooms','guests','reservations','users','service_requests','maintenance_issues','reviews'])
+for (const t of ['rooms','guests','reservations','users','service_requests','maintenance_issues','reviews','invoices','message_templates'])
   counts[t] = get(`SELECT COUNT(*) c FROM ${t}`).c;
 console.log('Seed complete:', counts);
 console.log('Login: admin@stayos.hotel / admin123');
-
-
-
-
-
-
-
-
-
-
-
-

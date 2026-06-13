@@ -36,6 +36,16 @@ const I18N = {
     act_block:'Block', act_unblock:'Unblock', done_check:'✓',
     ask_room:'Room number for check-in:', ask_assignee:'Assign to (name):',
     ask_issue:'Describe the issue:', ask_location:'Location (e.g. Room 204), optional:', invoiced_ok:'Invoice created:',
+    nav_billing:'Billing', sub_billing:'Invoices, receipts and payments',
+    nav_reviews:'Reviews', sub_reviews:'Guest satisfaction and alerts',
+    nav_messaging:'Messaging', sub_messaging:'Automated message templates (editable)',
+    nav_guest:'Guest Portal', sub_guest:'The guest-facing experience',
+    bill_invoiced:'Invoiced', bill_receivable:'Receivable', bill_paid:'Paid', bill_doc:'Document', th_method:'Method',
+    th_comment:'Comment', th_template:'Template', tpl_channel:'Channel',
+    act_mark_paid:'Mark paid', act_new_doc:'New document', act_forward:'Forward to Booking/Google',
+    forwarded:'Forwarded ✓', neg_alert:'Manager alert', act_edit:'Edit', guest_open:'Open guest portal',
+    guest_intro:'Guests access this by link or QR code — no app to install. Try it with a demo reservation:',
+    ask_doc_type:'Document type (receipt or credit_note):', ask_amount:'Amount in €:', ask_tpl_body:'Edit message text:',
     // statuses
     s_new:'New', s_confirmed:'Confirmed', s_pending:'Pending', s_cancelled:'Cancelled',
     s_no_show:'No-show', s_checked_in:'Checked in', s_in_house:'In house', s_checked_out:'Checked out',
@@ -81,6 +91,16 @@ const I18N = {
     act_block:'Blokkeren', act_unblock:'Deblokkeren', done_check:'✓',
     ask_room:'Kamernummer voor check-in:', ask_assignee:'Toewijzen aan (naam):',
     ask_issue:'Beschrijf de storing:', ask_location:'Locatie (bv. Kamer 204), optioneel:', invoiced_ok:'Factuur aangemaakt:',
+    nav_billing:'Facturatie', sub_billing:'Facturen, bonnen en betalingen',
+    nav_reviews:'Reviews', sub_reviews:'Gasttevredenheid en alerts',
+    nav_messaging:'Berichten', sub_messaging:'Sjablonen voor automatische berichten (bewerkbaar)',
+    nav_guest:'Gastenportaal', sub_guest:'De ervaring voor de gast',
+    bill_invoiced:'Gefactureerd', bill_receivable:'Te ontvangen', bill_paid:'Betaald', bill_doc:'Document', th_method:'Methode',
+    th_comment:'Opmerking', th_template:'Sjabloon', tpl_channel:'Kanaal',
+    act_mark_paid:'Betaald markeren', act_new_doc:'Nieuw document', act_forward:'Doorsturen naar Booking/Google',
+    forwarded:'Doorgestuurd ✓', neg_alert:'Manager-alert', act_edit:'Bewerken', guest_open:'Gastenportaal openen',
+    guest_intro:'Gasten openen dit via link of QR-code — geen app nodig. Probeer het met een demo-reservering:',
+    ask_doc_type:'Documenttype (receipt of credit_note):', ask_amount:'Bedrag in €:', ask_tpl_body:'Berichttekst bewerken:',
     s_new:'Nieuw', s_confirmed:'Bevestigd', s_pending:'In afwachting', s_cancelled:'Geannuleerd',
     s_no_show:'No-show', s_checked_in:'Ingecheckt', s_in_house:'In huis', s_checked_out:'Uitgecheckt',
     s_invoiced:'Gefactureerd', s_in_review:'In beoordeling', s_in_progress:'In behandeling', s_done:'Klaar',
@@ -132,7 +152,7 @@ const CHAN = { booking:['B','c-booking','Booking.com'], expedia:['E','c-expedia'
 // ---------- nav ----------
 const NAV = [
   ['sec_ops', [['dashboard','▦'],['rooms','▢'],['reservations','▤'],['requests','◷'],['housekeeping','✦'],['maintenance','⚒']]],
-  ['sec_biz', [['crm','♛'],['more','◔']]],
+  ['sec_biz', [['crm','♛'],['billing','€'],['reviews','★'],['messaging','✉'],['guest','▣']]],
   ['sec_admin', [['settings','⚙']], 'admin'],
 ];
 function renderNav(){
@@ -344,8 +364,58 @@ async function viewSettings(){
   });
 }
 
+async function viewBilling(){
+  const rows = await api('/invoices');
+  const sum = (f)=>rows.filter(f).reduce((s,r)=>s+r.amount,0);
+  const tot=sum(r=>r.amount>0), recv=sum(r=>r.status==='unpaid'&&r.amount>0), paid=sum(r=>r.status==='paid');
+  const TL={invoice:'Invoice',receipt:'Receipt',credit_note:'Credit note'};
+  $('#content').innerHTML = `
+    <div class="grid three" style="margin-bottom:16px">
+      <div class="card kpi"><div class="lbl">${t('bill_invoiced')}</div><div class="val">€${tot.toLocaleString()}</div></div>
+      <div class="card kpi"><div class="lbl">${t('bill_receivable')}</div><div class="val">€${recv.toLocaleString()}</div></div>
+      <div class="card kpi"><div class="lbl">${t('bill_paid')}</div><div class="val">€${paid.toLocaleString()}</div></div></div>
+    <div style="margin-bottom:12px"><button class="btn" data-do="inv-new">+ ${t('act_new_doc')}</button></div>
+    <div class="card" style="padding:0;overflow:hidden"><table>
+    <thead><tr><th>${t('bill_doc')}</th><th>${t('th_guest')}</th><th>${t('th_room')}</th><th>${t('th_method')}</th><th>${t('th_amount')}</th><th>${t('th_status')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ const st=r.status==='paid'?'t-green':r.status==='issued'?'t-blue':'t-amber';
+      const act=r.status==='unpaid'?`<button class="btn" data-do="inv-paid" data-id="${r.id}" style="padding:5px 10px">${t('act_mark_paid')}</button>`:'<span class="muted">—</span>';
+      return `<tr><td><b>${r.number}</b><div class="muted">${TL[r.type]||r.type}</div></td>
+      <td>${r.guest||r.company||'—'}</td><td>${r.room||'—'}</td><td>${r.method||'—'}</td>
+      <td><b>€${r.amount}</b></td><td><span class="tag ${st}">${r.status}</span></td><td>${act}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+
+async function viewReviews(){
+  const rows = await api('/reviews');
+  $('#content').innerHTML = `<div class="card" style="padding:0;overflow:hidden"><table>
+    <thead><tr><th>${t('th_guest')}</th><th>${t('th_status')}</th><th>${t('th_comment')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ const f=Math.round(r.rating); const stars='★'.repeat(f)+'☆'.repeat(5-f); const neg=r.rating<=3;
+      const act=r.forwarded?`<span class="tag t-green">${t('forwarded')}</span>`:(neg?`<span class="tag t-red">⚠ ${t('neg_alert')}</span>`:`<button class="btn" data-do="rv-forward" data-id="${r.id}" style="padding:5px 10px">${t('act_forward')}</button>`);
+      return `<tr><td><b>${r.guest}</b></td><td><span class="stars">${stars}</span> ${r.rating}</td>
+      <td class="muted">${r.comment||''}</td><td>${act}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+
+async function viewMessaging(){
+  const rows = await api('/templates');
+  $('#content').innerHTML = `<div class="note">${t('sub_messaging')}</div>
+    <div class="card" style="padding:0;overflow:hidden"><table>
+    <thead><tr><th>${t('th_template')}</th><th>${t('tpl_channel')}</th><th>${t('th_active')}</th><th>${t('th_actions')}</th></tr></thead>
+    <tbody>${rows.map(r=>{ const name=state.lang==='nl'?r.name_nl:r.name_en;
+      return `<tr><td><b>${name}</b><div class="muted">${r.body}</div></td>
+      <td><span class="tag t-blue">${r.channel}</span></td>
+      <td>${r.active?'<span class="tag t-green">●</span>':'<span class="tag t-gray">○</span>'}</td>
+      <td><button class="btn ghost" data-do="tpl-edit" data-id="${r.id}" style="padding:5px 10px">${t('act_edit')}</button></td></tr>`;}).join('')}</tbody></table></div>`;
+}
+
+function viewGuest(){
+  const code='BK-90412';
+  $('#content').innerHTML = `<div class="note">${t('guest_intro')} <b>${code}</b></div>
+    <div class="card"><div class="panelhead"><h3>${t('nav_guest')}</h3></div>
+    <p class="muted" style="margin-bottom:16px">${t('sub_guest')}.</p>
+    <button class="btn" data-do="open-guest" data-code="${code}">${t('guest_open')} →</button></div>`;
+}
+
 const VIEWS = { dashboard:viewDashboard, rooms:viewRooms, reservations:viewReservations, settings:viewSettings,
-  requests:viewRequests, housekeeping:viewHousekeeping, maintenance:viewMaintenance, crm:viewCrm, more:viewMore };
+  requests:viewRequests, housekeeping:viewHousekeeping, maintenance:viewMaintenance, crm:viewCrm, billing:viewBilling, reviews:viewReviews, messaging:viewMessaging, guest:viewGuest, more:viewMore };
 
 async function go(view){
   state.view = view;
@@ -416,6 +486,12 @@ document.getElementById('content').addEventListener('click', async (e) => {
     else if (doit==='mnt-new'){ const desc=prompt(t('ask_issue')); if(!desc) return; const loc=prompt(t('ask_location'))||'';
       const m=loc.match(/\d+/);
       await api('/maintenance/create',{method:'POST',body:JSON.stringify({description:desc, location:loc, room_number:m?Number(m[0]):null, priority:'medium'})}); go('maintenance'); }
+    else if (doit==='inv-paid'){ await api('/invoices/status',{method:'POST',body:JSON.stringify({id, status:'paid'})}); go('billing'); }
+    else if (doit==='inv-new'){ const type=prompt(t('ask_doc_type'),'receipt'); if(!type) return; const amt=Number(prompt(t('ask_amount'),'0'))||0;
+      await api('/invoices/create',{method:'POST',body:JSON.stringify({type, amount:amt, method:'Card'})}); go('billing'); }
+    else if (doit==='rv-forward'){ await api('/reviews/forward',{method:'POST',body:JSON.stringify({id})}); go('reviews'); }
+    else if (doit==='tpl-edit'){ const txt=prompt(t('ask_tpl_body')); if(txt!==null){ await api('/templates/update',{method:'POST',body:JSON.stringify({id, body:txt})}); go('messaging'); } }
+    else if (doit==='open-guest'){ window.open('guest.html?code='+encodeURIComponent(b.dataset.code),'_blank'); }
   } catch(err){ alert(err.message); }
 });
 
