@@ -1,4 +1,4 @@
-# StayOS — Sistema de Gestão Hoteleira (Hotel Miramar)
+# StayOS — Sistema de Gestão Hoteleira 
 
 Aplicação real, sem dependências externas. Fase 1 do roadmap (ver `ROADMAP.md`).
 
