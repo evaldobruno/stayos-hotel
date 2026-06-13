@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: stayos-miramar
+    name: stayos-hotel
     runtime: node
     plan: free
     buildCommand: ""
